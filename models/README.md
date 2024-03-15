@@ -6,15 +6,18 @@ Here we provide instructions/tips for interacting with the models in our pipelin
 * default setup requires `transformers==4.21.0`
 * also supports [SPRING](https://github.com/SapienzaNLP/spring)
 * contact the authors for LeakDistill checkpoints
+* [paper](https://arxiv.org/abs/2306.13467)
 
-#### [BLINK]((https://github.com/facebookresearch/BLINK))
+#### [BLINK](https://github.com/facebookresearch/BLINK)
 * we use `blinkify.py` inside `LeakDistill`
   * see their [instructions](https://github.com/SapienzaNLP/LeakDistill?tab=readme-ov-file#evaluation) for installation
+* [paper](https://arxiv.org/abs/1911.03814)
 
 ### IBM [transition-amr-parser](https://github.com/IBM/transition-amr-parser)
 * default setup requires CUDA-11.7 for `torch-scatter`
 * we always run an ensemble of 3 different seeds
   *  see [here](https://github.com/IBM/transition-amr-parser/blob/master/scripts/mbse.py) for MBSE
+* refer to [README](https://github.com/IBM/transition-amr-parser/blob/master/README.md) for the full list of papers
 
 #### [LEAMR](https://github.com/ablodge/leamr)
 LeakDistill or Spring needs a separate alinger module if used alone
@@ -31,6 +34,7 @@ LeakDistill or Spring needs a separate alinger module if used alone
   * mgiza++
 * requires [neuralcoref](https://github.com/huggingface/neuralcoref)
   * must be built from source
+* [paper](https://aclanthology.org/2021.acl-long.257/)
 
 ## Modal Dependency Parsing
 
@@ -42,10 +46,12 @@ MDP consists of 2 stages:
 * must be trained on [MDG corpus](https://github.com/Jryao/modal_dependency/tree/main/data)
   * contact the author for the version with the sentences
 * `end2end` suppots both stages
+* [paper](https://aclanthology.org/2022.naacl-main.211/)
 
 ### modal baseline
 * as far as we know, this model is not available to the public
   * contact the author for details
+* [paper](https://aclanthology.org/2021.acl-long.122/)
 
 ## Temporal Dependency Parsing
 
@@ -57,11 +63,14 @@ TDP consists of 2 stages:
 * requires transformers later than `4.21.0`
 * only supports Stage 2
 * general-domain version must be trained on [TDG corpus](https://github.com/Jryao/temporal_dependency_graphs_crowdsourcing/tree/master/tdg_data)
+* [paper](https://aclanthology.org/2023.clinicalnlp-1.25/)
 
 ### temporal baseline
 * only supports Stage 1
 * as far as we know, this model is not available to the public
   * contact the author for details
+* [paper](https://aclanthology.org/2020.emnlp-main.432/) 
+  * the paper references [this ranking model](https://github.com/yuchenz/tdp_ranking) which is different from this baseline
 
 #### NOTE
 * `temporal_baseline` accepts data format which is different from what `thyme_tdg` accepts
@@ -71,7 +80,9 @@ TDP consists of 2 stages:
 
 ### [CDLM](https://github.com/aviclu/CDLM/tree/main/cross_encoder) for event-coref
 * default setup requires `transformers==3.0.0`
+* [paper](https://aclanthology.org/2021.findings-emnlp.225/)
 
 ### [caw-coref](https://github.com/kareldo/wl-coref)
-* based on [wl-coref](https://github.com/vdobrovolskii/wl-coref) which is also supported in this pipeline
+* based on [wl-coref](https://github.com/vdobrovolskii/wl-coref) ([paper](https://aclanthology.org/2021.emnlp-main.605/)) which is also supported in this pipeline
+* [paper](https://arxiv.org/abs/2310.06165)
 
