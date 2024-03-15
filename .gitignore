@@ -1,0 +1,6 @@
+.stfolder
+.stignore
+refs/
+.idea/
+.DS_Store
+TEMP/
