@@ -7,8 +7,7 @@ import logging
 from dataclasses import dataclass
 from typing import Dict, Union
 
-from structure import graph_utils
-from utils import consts as C
+from utils import consts as C, regex_utils
 
 logger = logging.getLogger(__name__)
 
@@ -121,9 +120,9 @@ class Edge:
     """
     label = self.label
     if decorate:
-      label = graph_utils.maybe_decorate_edge(label)
+      label = regex_utils.maybe_decorate_edge(label)
     else:
-      label = graph_utils.maybe_strip_edge(label)
+      label = regex_utils.maybe_strip_edge(label)
     return label
 
   def __eq__(self, other: 'Edge'):

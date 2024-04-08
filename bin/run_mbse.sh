@@ -21,7 +21,7 @@ python -V
 cd $mbse_home
 
 echo -e "\nRunning MBSE"
-for input in "$inputs"
+for input in $inputs
 do
     echo -e " Input: $input"
 done

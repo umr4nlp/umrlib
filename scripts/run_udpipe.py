@@ -62,7 +62,7 @@ def main(args):
   assert input_fpath is not None and os.path.isfile(input_fpath)
 
   output_fpath = args.output
-  output_dir, is_dir = io_utils.get_dirname(args.output, mkdir=True, return_is_dir_flag=True)
+  output_dir, is_dir = io_utils.get_dirname(args.output, mkdir=True, get_is_dir_flag=True)
   if is_dir:
     output_fpath = io_utils.get_unique_fpath(output_fpath, D.UDPIPE_JSON)
   log_fpath = os.path.join(output_dir, D.UDPIPE_LOG)

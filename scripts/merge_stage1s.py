@@ -18,6 +18,12 @@ from utils.misc_utils import add_log2file, script_setup, timer
 
 logger = logging.getLogger(__name__)
 
+# DEF_LABEL = "Depend-on"
+DEF_LABEL = "before"
+DCT_ANNO = ['0_0_3', 'Timex']
+DCT_ANNO_STR = "\t".join(DCT_ANNO)
+DCT_ANNO_THYME = ['0_0_3', 'Timex',	'-1_-1_-1',	'Depend-on']
+DCT_ANNO_THYME_STR = "\t".join(DCT_ANNO_THYME)
 
 def merge_stage1s(stage1s, output_fpath, include_conceiver=False, include_timex=False, for_thyme_tdg=False):
   # load
@@ -42,29 +48,40 @@ def merge_stage1s(stage1s, output_fpath, include_conceiver=False, include_timex=
 
     doc_inputs = [f"filename:<doc id={cur_doc_id}>:SNT_LIST"] + cur_snts + ['EDGE_LIST']
 
+    # if for_thyme_tdg:
+    #   doc_inputs.append('\t'.join(['0_0_3', 'Timex',	'-1_-1_-1',	'Depend-on']))
+
     conceivers, timexs, events = [], [], []
     for data_list in data_tuples:
       for data in data_list:
         data_type = data[1]
         if for_thyme_tdg and len(data) == 2:
-          data.extend(['-1_-1_-1', 'Depend-on'])
+          # data.extend(['-1_-1_-1', 'Depend-on'])
+          data.extend(['-1_-1_-1', DEF_LABEL])
         data_str = '\t'.join(data)
         if data_type == C.TIMEX:
-          timexs.append(data_str)
+          if data_str not in timexs:
+            timexs.append(data_str)
         elif data_type == C.CONCEIVER:
-          conceivers.append(data_str)
+          if data_str not in conceivers:
+            conceivers.append(data_str)
         elif data_str not in events:
+          assert data_type == C.EVENT
           events.append(data_str)
+
+    if for_thyme_tdg:
+      if DCT_ANNO_THYME_STR not in timexs:
+        timexs.append(DCT_ANNO_THYME_STR)
+    else:
+      if DCT_ANNO_STR not in timexs:
+        timexs.append(DCT_ANNO_STR)
 
     out_data = []
     if include_conceiver:
-      out_data += conceivers
+      out_data += sorted(conceivers, key=lambda x: tuple(map(int, x.split('\t')[0].split('_'))))
     if include_timex:
-      out_data += timexs
-    out_data += events
-
-    # sort
-    out_data.sort(key=lambda x: tuple(map(int, x.split('\t')[0].split('_'))))
+      out_data += sorted(timexs, key=lambda x: tuple(map(int, x.split('\t')[0].split('_'))))
+    out_data += sorted(events, key=lambda x: tuple(map(int, x.split('\t')[0].split('_'))))
 
     out_data = doc_inputs + out_data
     merged_docs.append('\n'.join(out_data))
@@ -77,16 +94,19 @@ def merge_stage1s(stage1s, output_fpath, include_conceiver=False, include_timex=
 def main(args):
   # no `input`, but rather `stage1`, a list of input files
   stage1s = args.stage1s
-  assert len(stage1s) > 1, "at least 2 stage1s necessary for merging"
+  # assert len(stage1s) > 1, "at least 2 stage1s necessary for merging"
+
+  canonicals = []
   for stage1 in stage1s:
     assert os.path.exists(stage1)
+    canonicals.append(io_utils.get_canonical_fname(stage1, depth=2))
 
   ### output should be a dir
   output_fpath = args.output
-  output_dir, is_dir = io_utils.get_dirname(output_fpath, mkdir=True, return_is_dir_flag=True)
+  output_dir, is_dir = io_utils.get_dirname(output_fpath, mkdir=True, get_is_dir_flag=True)
   if is_dir:
-    output_fpath = io_utils.get_unique_fpath(output_dir, f'{C.MERGED}.{C.STAGE1_TXT}')
-  log_fpath = os.path.join(output_dir, D.MERGE_LOG)
+    output_fpath = io_utils.get_unique_fpath(output_dir, f'{":".join(canonicals)}.{C.MERGED}.{C.STAGE1_TXT}')
+  log_fpath = os.path.join(output_dir, D.MERGE_STAGE1_LOG)
   add_log2file(log_fpath)
 
   if args.for_thyme_tdg and not args.include_timex:
@@ -94,7 +114,8 @@ def main(args):
     args.include_timex = True
 
   logger.info("=== Merging Stage 1s ===")
-  logger.info("Stage 1s: `%s`", "`, `".join(stage1s))
+  for i, stage1 in enumerate(stage1s, 1):
+    logger.info("Stage 1 (%d): `%s`", i, stage1)
   logger.info("Output: %s", output_fpath)
   logger.info("Include Conceiver: %s", args.include_conceiver)
   logger.info("Include Timex: %s", args.include_timex)

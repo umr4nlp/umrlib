@@ -6,12 +6,10 @@ set -o errexit
 set -o pipefail
 
 echo -e "\nInside \`$0\`"
-[ "$#" -lt 4 ] && echo "e.g. $0 input aligner_home cuda cvd" && exit 1
+[ "$#" -lt 2 ] && echo "e.g. $0 input aligner_home" && exit 1
 
 input=$(readlink -m $1)
 aligner_home=$(readlink -m $2)
-cuda=$3
-cvd=$4
 
 # venv is unnecessary as `run_aligners.sh` takes care of it itself
 if [[ "$VIRTUAL_ENV" != "" ]]
@@ -19,11 +17,7 @@ then
   source deactivate
 fi
 
-echo -e "\n$cvd\n"
-export $cvd
-
-# set correct cuda version
-source $HOME/scripts/enable_$cuda
+echo -e "\nCUDA_VISIBLE_DEVICES: $CUDA_VISIBLE_DEVICES"
 nvcc --version
 
 # aligner

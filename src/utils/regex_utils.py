@@ -18,8 +18,56 @@ DOC_GRAPH_PATTERNS = {
 }
 DOC_GRAPH_SUBPATTERN = r'\(((\S*)\s*(\:\S*)\s*(\S*?))\)'
 
+def clean_text(text):
+  """https://en.wikipedia.org/wiki/Windows-1252#Codepage_layout"""
+  text = text.replace('\r', '')
+  text = text.replace('\n\n\n', '\n\n')
+  text = text.replace(u'\x80', "")
+  text = text.replace(u'\x85', "...")
+  text = text.replace(u'\x91', "'") # left quote
+  text = text.replace(u'\x92', "'") # right quote
+  text = text.replace(u'\x93', '"') # left double-quote
+  text = text.replace(u'\x94', '"') # right double-quote
+  text = text.replace(u'\x95', "·")
+  text = text.replace(u'\x96', "-")
+  text = text.replace(u'\x97', "-")
+  text = text.replace(u'\x99', "")  # tm mark
+  text = text.replace(u'\x9c', "")
+  text = text.replace(u'\x9d', "")
+  text = text.replace(u'\xa0', " ")
+  return text
+
 def is_concept(label: str) -> bool:
   return re.search(CONCEPT_PATTERN, label) is not None
+
+def maybe_decorate_edge(label) -> str:
+  if not isinstance(label, str):
+    label = label.get_label()
+  if not label.startswith(':'):
+    label = f':{label}'
+  return label
+
+def maybe_strip_edge(label) -> str:
+  if not isinstance(label, str):
+    label = label.get_label()
+  if label.startswith(':'):
+    label = label[1:]
+  return label
+
+def has_of_suffix(label) -> bool:
+  if not isinstance(label, str):
+    label = label.get_label()
+  return label.endswith(C.OF_SUFFIX)
+
+def invert_edge_label(label) -> str:
+  if not isinstance(label, str):
+    label = label.get_label()
+  return label[:-3] if has_of_suffix(label) else f'{label}{C.OF_SUFFIX}'
+
+def normalize_edge_lable(label) -> str:
+  if has_of_suffix(label):
+    label = invert_edge_label(label)
+  return label
 
 def parse_amr_meta(line: str) -> Tuple[str, str]:
   for x in re.finditer(AMR_META_PATTERN, line):

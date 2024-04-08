@@ -16,31 +16,51 @@ from utils import consts as C, io_utils
 logger = logging.getLogger(__name__)
 
 
-def parse_umr_doc_id(doc_id: str, as_int=False):
-  tmp = doc_id.split('.')
+# in case artificial idxs have to be introduced
+DOC_IDX = 1
+SNT_IDX = 1
+
+def parse_umr_id(doc_snt_id: str, merge_doc_id=False, int_idx=False):
+  global DOC_IDX, SNT_IDX
+
+  tmp = doc_snt_id.split('.')
   try:
     int(tmp[-1])
 
     # e.g., `english_umr-xxxx.y`
     prefix = '.'.join(tmp[:-1])
     snt_idx = tmp[-1]
-    if as_int:
-      snt_idx = int(snt_idx)
+    if int_idx:
+      try:
+        snt_idx = int(snt_idx)
+      except ValueError:
+        snt_idx = SNT_IDX
+        SNT_IDX += 1
 
     tmp = prefix.split('-')
-    header = tmp[:-1]
+    header = "-".join(tmp[:-1])
     doc_idx = tmp[-1]
-    if as_int:
-      doc_idx = int(doc_idx)
+    if int_idx:
+      try:
+        doc_idx = int(doc_idx)
+      except ValueError:
+        doc_idx = DOC_IDX
+        DOC_IDX += 1
+    if merge_doc_id:
+      return "-".join([header, f"{doc_idx:04}"]), snt_idx
     return header, doc_idx, snt_idx
 
   except ValueError:
     # e.g., `english_umr-xxxx`
-    tmp = doc_id.split('-')
+    tmp = doc_snt_id.split('-')
     header = tmp[:-1]
     doc_idx = tmp[-1]
-    if as_int:
-      doc_idx = int(doc_idx)
+    if int_idx:
+      try:
+        doc_idx = int(doc_idx)
+      except ValueError:
+        doc_idx = DOC_IDX
+        DOC_IDX += 1
     return header, doc_idx
 
 def build_umr_id(doc_idx: Union[str, int], snt_idx: Optional[Union[str, int]] = None):
@@ -60,25 +80,8 @@ def build_umr_id(doc_idx: Union[str, int], snt_idx: Optional[Union[str, int]] = 
 
   return doc_id
 
-def merge_umr_docs(docs: Dict[Union[int, str], Document], split_mapping) -> Dict[str, Document]:
-  if isinstance(split_mapping, str):
-    split_mapping = io_utils.load_json(split_mapping)
-  assert isinstance(split_mapping, dict)
-
-  doc_split_mapping = split_mapping[C.DOC]
-  # snt_split_mapping = split_mapping[C.SNT]
-
-  merged_docs = dict()
-  for split_doc_id, (ref_doc_id, doc_idx) in tqdm.tqdm(sorted(doc_split_mapping.items()), desc=f"[Merge Splits]"):
-    cur_doc = docs[split_doc_id]
-    if doc_idx == 0:
-      merged_docs[ref_doc_id] = cur_doc
-    else:
-      merged_docs[ref_doc_id].merge(cur_doc)
-
-  return merged_docs
-
 def prepare_per_snt_doc_graph(docs: Dict[Union[int, str], Document], add_snt_prefix_to_vars=False):
+  # raise NotImplementedError()
   for doc_id, umr_doc in tqdm.tqdm(docs.items(), desc=f'[Prepare Per-Snt DocGraph]'):
     # init empty doc_graph per example
     for example in umr_doc:
@@ -126,11 +129,21 @@ def prepare_per_snt_doc_graph(docs: Dict[Union[int, str], Document], add_snt_pre
           if not node.is_attribute:
             node.set_var(f"s{example.idx}x{i}")
 
-def export_umr_docs(docs: Dict[Union[int, str], Document], output_dir, with_alignment=False):
+def export_umr_docs(docs: Dict[Union[int, str], Document], output_dir,
+                    add_root2author_modal=False, with_alignment=False):
   assert os.path.isdir(output_dir)
 
   logger.info("Exporting UMRs at `%s`", output_dir)
   for doc_id, doc in docs.items():
+    # maybe this doc has a global doc_graph triples that needs to be distributed
+    # per-sentence doc_graphs
+    if doc.has_global_doc_graph():
+      doc.distribute_global_doc_graph_triples(add_root2author_modal)
+
+    # rename vars with `s%d` snt prefix
+    doc.add_snt_prefix_to_snt_vars()
+
+    # finally, encode to string
     out = []
     for example in doc:
       out.append(example.encode(with_alignment=with_alignment))
@@ -138,6 +151,7 @@ def export_umr_docs(docs: Dict[Union[int, str], Document], output_dir, with_alig
 
 def load_umr_file_aux(
         raw_txt,
+        doc_id=None,
         snt_to_tok=None,
         init_alignment=False,
         init_graphs=False,
@@ -190,11 +204,17 @@ def load_umr_file_aux(
       else:
         logger.debug("Found a block with unconventional format: %s", block)
 
-    toks = tokenize(snt, mode=snt_to_tok).split()
+    if not snt:
+      logger.debug("[!] Empty snt!\nSegment:\n%s", segment)
+    logger.debug("Snt: %s", snt)
+    toks = tokenize(snt, mode=snt_to_tok)
+    logger.debug("Tok: %s", toks)
+    toks = toks.split()
 
     # noinspection PyTypeChecker
     example = Example(
-      idx=idx,
+      snt_idx=idx,
+      doc_id=doc_id,
       snt=snt,
       toks=toks, # if `tokenizer` is None or "", this is just `snt`,
       snt_graph=snt_graph,
@@ -212,7 +232,7 @@ def load_umr_file(fpath_or_dir, fname=None, init_document=False, init_doc_var_no
   doc_id = os.path.splitext(fname)[0]
 
   raw_txt = io_utils.load_txt(fpath)
-  examples = load_umr_file_aux(raw_txt, **kwargs)
+  examples = load_umr_file_aux(raw_txt, doc_id=doc_id, **kwargs)
   logger.info("Found %d UMR annotations in `%s`", len(examples), doc_id)
 
   if init_document:
@@ -226,8 +246,7 @@ def load_umr_dir(umr_dir, exts=None, **kwargs) -> Union[List[Document], List[Lis
 
   count = 0
   docs_list = []
-  # for fname in sorted(os.listdir(umr_dir)):
-  for fname in os.listdir(umr_dir):
+  for fname in sorted(os.listdir(umr_dir)):
     ext = os.path.splitext(fname)[-1]
     if ext in exts:
       data = load_umr_file(os.path.join(umr_dir, fname), **kwargs)

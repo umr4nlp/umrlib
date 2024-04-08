@@ -14,10 +14,12 @@ PLATFORM = platform.system()
 HOSTNAME = socket.gethostname()
 
 ### CORE
+# prefer relative paths
 HOME = os.path.expanduser('~')
-PROJECT = os.getcwd()
+PROJECT = os.path.relpath(os.getcwd())
 if C.SCRIPTS in os.path.basename(PROJECT):
   PROJECT = os.path.abspath(os.path.join(PROJECT, os.pardir))
+  PROJECT = os.path.relpath(PROJECT)
 
 if PLATFORM == 'Darwin':
   if 'MacStudio' in HOSTNAME:
@@ -25,22 +27,22 @@ if PLATFORM == 'Darwin':
   else:
     _BMRP_HOME = os.path.join(HOME, "Documents/B-MRP")
   DATA = os.path.join(_BMRP_HOME, "DATA")
-  UMR_EVAL = os.path.join(_BMRP_HOME, "UMR-Inference")
-  ALIGNERS = C.NOT_FOUND
+  # ANCAST = os.path.join(_BMRP_HOME, "UMR-Inference")
+  ANCAST = os.path.join(_BMRP_HOME, "ancast")
 else:
   if 'omics' in HOSTNAME:
     DATA = os.path.join(HOME, "misc/lan/DATA")
-    ALIGNERS = os.path.join(HOME, "misc/lan/Aligners")
-    UMR_EVAL = os.path.join(HOME, "misc/lan/UMR-Inference")
+    # ANCAST = os.path.join(HOME, "misc/lan/UMR-Inference")
+    ANCAST = os.path.join(HOME, "misc/lan/ancast")
   else:
     _BMRP_HOME = os.path.join(HOME, "Documents/lan/B-MRP")
     DATA = os.path.join(_BMRP_HOME, "DATA")
-    ALIGNERS = os.path.join(_BMRP_HOME, "Aligners")
-    UMR_EVAL = os.path.join(_BMRP_HOME, "UMR-Inference")
+    # ANCAST = os.path.join(_BMRP_HOME, "UMR-Inference")
+    ANCAST = os.path.join(_BMRP_HOME, "ancast")
 
+# usually outside UPP
 DATA = DATA if os.path.exists(DATA) else C.NOT_FOUND
-ALIGNERS = ALIGNERS if os.path.exists(ALIGNERS) else C.NOT_FOUND # technically LEAMR
-UMR_EVAL = UMR_EVAL if os.path.exists(UMR_EVAL) else C.NOT_FOUND
+ANCAST = ANCAST if os.path.exists(ANCAST) else C.NOT_FOUND
 TORCH_HUB = os.path.join(HOME, '.cache/torch')
 
 # corpora
@@ -57,20 +59,23 @@ TDG = TDG if os.path.exists(TDG) else C.NOT_FOUND
 PROJ_DATA = os.path.join(PROJECT, C.DATA)
 PROJ_EXP = os.path.join(PROJECT, C.EXP)
 PROJ_MODELS = os.path.join(PROJECT, C.MODELS)
+RESOURCES = os.path.join(PROJECT, C.RESOURCES)
 
 # model home
+ALIGNERS = os.path.join(PROJ_MODELS, "Aligners")
+ALIGNERS = ALIGNERS if os.path.exists(ALIGNERS) else C.NOT_FOUND
 SAPIENZA = os.path.join(PROJ_MODELS, C.LEAK_DISTILL)
 SAPIENZA = SAPIENZA if os.path.exists(SAPIENZA) else C.NOT_FOUND
 IBM = os.path.join(PROJ_MODELS, C.IBM_PARSER)
 IBM = IBM if os.path.exists(IBM) else C.NOT_FOUND
 AMRBART = os.path.join(PROJ_MODELS, C.AMRBART)
 AMRBART = AMRBART if os.path.exists(AMRBART) else C.NOT_FOUND
-MDP_BASELINE = os.path.join(PROJ_MODELS, C.MODAL)
-MDP_BASELINE = MDP_BASELINE if os.path.exists(MDP_BASELINE) else C.NOT_FOUND
+MODAL_BASELINE = os.path.join(PROJ_MODELS, C.MODAL)
+MODAL_BASELINE = MODAL_BASELINE if os.path.exists(MODAL_BASELINE) else C.NOT_FOUND
 MDP_PROMPT = os.path.join(PROJ_MODELS, C.MDP_PROMPT, 'src')
 MDP_PROMPT = MDP_PROMPT if os.path.exists(MDP_PROMPT) else C.NOT_FOUND
-TDP_BASELINE = os.path.join(PROJ_MODELS, C.TDP)
-TDP_BASELINE = TDP_BASELINE if os.path.exists(TDP_BASELINE) else C.NOT_FOUND
+TEMPORAL_BASELINE = os.path.join(PROJ_MODELS, C.TDP)
+TEMPORAL_BASELINE = TEMPORAL_BASELINE if os.path.exists(TEMPORAL_BASELINE) else C.NOT_FOUND
 THYME_TDG = os.path.join(PROJ_MODELS, C.THYME_TDG)
 THYME_TDG = THYME_TDG if os.path.exists(THYME_TDG) else C.NOT_FOUND
 CDLM = os.path.join(PROJ_MODELS, C.CDLM)
@@ -81,9 +86,12 @@ CAW_COREF = os.path.join(PROJ_MODELS, C.CAW_COREF)
 CAW_COREF = CAW_COREF if os.path.exists(CAW_COREF) else C.NOT_FOUND
 
 # model inputs
+SNTS_TXT = f'{C.SNTS}.{C.TXT}'
 TOKS_TXT = f'{C.TOKS}.{C.TXT}' # input to ibm transition amr parser
+AMR_TXT = f'{C.AMR}.{C.TXT}' # input to sapienza
 AMRS_TXT = f'{C.AMRS}.{C.TXT}' # input to sapienza
 AMRS_JSONL = f'{C.AMRS}.{C.JSONL}' # input to AMRBART
+SNT_AMRS = f'{C.SNT}_{C.UMR}.{C.AMRS}' # conversion's snt-graph outputs
 DOCS_TXT = f'{C.DOCS}.{C.TXT}' # input to MDP + TDP stage 1
 DOCS_TXT_TEMP = f'{C.DOCS}_%s.{C.TXT}'  # placeholder for split size
 COREF_JSONLINES = f'{C.COREF}.{C.JSONLINES}' # input to (and output of) coref
@@ -103,18 +111,22 @@ PRP_LOG = f'{C.PRP}.{C.LOG}' # scripts/preprocess_umr_en_v1.0.py
 SAPIENZA_LOG = f'{C.SAPIENZA}.{C.LOG}' # bin/run_sapienza.sh
 IBM_LOG = f'{C.IBM}.{C.LOG}' # bin/run_ibm.sh
 AMRBART_LOG = f'{C.AMRBART}.{C.LOG}' # bin/run_amrbart.sh
+AMR_POST_LOG = f'{C.AMR}_{C.POST}.{C.LOG}' # scripts/amr_postprocessing.py
 BLINK_LOG = f'{C.BLINK}.{C.LOG}' # bin/run_blink.sh
 LEAMR_LOG = f'{C.LEAMR}.{C.LOG}' # bin/run_leamr.sh
 MBSE_LOG = f'{C.MBSE}.{C.LOG}' # bin/run_mbse.sh
-MDP_BASELINE_LOG = f'{C.MODAL_MULTI_TASK}.{C.LOG}' # bin/run_modal_multi_task*.sh
-MDP_PROMPT_LOG = f'{C.MDP_PROMPT}.{C.LOG}' # bin/run_mdp_prompt*.sh
-MERGE_LOG = f'{C.MERGE}.{C.LOG}' # scripts/merge_stage1s.py
+MDP_BASELINE_LOG = f'{C.MODAL_BASELINE}.{C.LOG}' # bin/run_modal_baseline.sh
+MDP_PROMPT_LOG = f'{C.MDP_PROMPT}.{C.LOG}' # bin/run_mdp_prompt.sh
+MERGE_STAGE1_LOG = f'{C.MERGE}_{C.STAGE1}.{C.LOG}' # scripts/merge_stage1s.py
+MERGE_STAGE2_LOG = f'{C.MERGE}_{C.STAGE2}.{C.LOG}' # scripts/merge_stage2s.py
 PREP_THYME_TDG_LOG = f'{C.PREP}_{C.THYME_TDG}.{C.LOG}' # scripts/prepare_thyme_tdg_inputs.py
-TDP_BASELINE_LOG = f'{C.TDP}.{C.LOG}' # bin/run_temporal_pipeline*.sh
+TEMPORAL_BASELINE_LOG = f'{C.TEMPORAL}.{C.LOG}' # bin/run_temporal_baseline.sh
 TDP_THYME_LOG = f'{C.THYME_TDG}.{C.LOG}' # bin/run_thyme_tdg.sh
 PREP_CDLM_LOG = f'{C.PREP}_{C.CDLM}.{C.LOG}' # scripts/prepare_cdlm_inputs.py
 CDLM_LOG = f'{C.CDLM}.{C.LOG}' # scripts/prepare_cdlm_inputs.py
 COREF_LOG = f'{C.COREF}.{C.LOG}' # bin/run_coref.sh
 UDPIPE_LOG = f'{C.UDPIPE}.{C.LOG}' # scripts/run_udpipe.py
 CONV_LOG = f'{C.CONV}.{C.LOG}' # scripts/convert_amr2umr.py
-EVAL_LOG = f'{C.EVAL}.{C.LOG}' # scripts/evaluate_umr.py
+ANCAST_UMR_LOG = f'{C.ANCAST}_{C.UMR}.{C.LOG}' # scripts/evaluate_umr.py
+ANCAST_AMR_LOG = f'{C.ANCAST}_{C.AMR}.{C.LOG}' # --format amr
+SMATCH_LOG = f'{C.SMATCH}.{C.LOG}' # scripts/compute_smatch.py

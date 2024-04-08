@@ -6,7 +6,7 @@ set -o errexit
 set -o pipefail
 
 echo -e "\nInside \`$0\`"
-[ "$#" -lt 9 ] && echo "e.g. $0 input output sapienza_home config checkpoint beamsize venv cuda cvd [EXTRA]" && exit 1
+[ "$#" -lt 7 ] && echo "e.g. $0 input output sapienza_home config checkpoint beamsize venv [EXTRA]" && exit 1
 
 input=$(readlink -m $1)
 output=$(readlink -m $2)
@@ -15,16 +15,9 @@ sapienza_home=$(readlink -m $3)
 config=$4
 checkpoint=$5
 beamsize=$6
-
 venv=$7
-cuda=$8
-cvd=$9
 
-echo -e "\n$cvd\n"
-export $cvd
-
-# set correct cuda version
-source $HOME/scripts/enable_$cuda
+echo -e "\nCUDA_VISIBLE_DEVICES: $CUDA_VISIBLE_DEVICES"
 nvcc --version
 
 # activate venv
@@ -50,7 +43,7 @@ python bin/predict_amrs.py \
     --beamsize $beamsize \
     --checkpoint $checkpoint \
     --device cuda \
-    ${@:10}
+    ${@:8}
 
 echo -e "Output: $output"
 

@@ -4,14 +4,18 @@
 # Date: 1/2/24 11:29 PM
 """global constants"""
 NOT_FOUND = 'NOT FOUND'
+NONE = 'NONE'
 
 # keys
 DATA = 'DATA'
 EXP = 'EXP'
 TMP = 'tmp'
-PRP = "prp"
 MODELS = 'models'
 SCRIPTS = 'scripts'
+RESOURCES = 'resources'
+
+PRP = "prp"
+POST = 'post'
 CORPUS = 'corpus'
 PRUNED = "pruned"
 PRUNED_MAPPING = "pruned_mapping"
@@ -19,7 +23,8 @@ SPLIT_MAPPING = "split_mapping"
 PREP = "prep"
 DOC2SNT_MAPPING = 'doc2snt_mapping'
 CONV = "conversion"
-EVAL = 'eval'
+ANCAST = 'AnCast'
+SMATCH = 'smatch'
 
 # models
 SAPIENZA = 'sapienza'
@@ -40,13 +45,13 @@ COREF = 'coref'
 WL_COREF = 'wl-coref'
 CAW_COREF = 'caw-coref'
 MDP = 'modal' # v1
-MODAL_MULTI_TASK = 'modal_multi_task'
+MODAL_BASELINE = 'modal_baseline'
 MDP_PROMPT = 'mdp_prompt'
 MDP_PROMPT_END2END = 'mdp_prompt_end2end'
 STAGE1 = 'stage1'
 STAGE2 = 'stage2'
 TDP = 'temporal' # v1
-TEMPORAL_PIPELINE = 'temporal_pipeline'
+TEMPORAL_BASELINE = 'temporal_baseline'
 THYME_TDG = 'thyme_tdg'
 MDP_STAGE1 = f'{MDP}_{STAGE1}'
 MDP_STAGE2 = f'{MDP}_{STAGE2}'
@@ -55,6 +60,7 @@ TDP_STAGE2 = f'{TDP}_{STAGE2}'
 UDPIPE = 'udpipe'
 MERGE = 'merge'
 MERGED = 'merged'
+TDP_MERGED_STAGE1 = f'{TDP}_{MERGED}_{STAGE1}'
 
 # extension
 LOG = 'log'
@@ -62,6 +68,7 @@ TXT = 'txt'
 JSON = 'json'
 JSONL = 'jsonl'
 JSONLINES  = 'jsonlines'
+CONLL = 'conll'
 AMR_TXT = 'amr.txt'
 STAGE1_TXT = 'stage1.txt'
 STAGE2_TXT = 'stage2.txt'
@@ -70,6 +77,7 @@ CDLM_CONLL = 'cdlm.conll'
 # preprocessing
 ID = 'id'
 SNT = 'snt'
+SNTS = 'snts'
 DOC = 'doc'
 DOCS = 'docs'
 TOK = 'tok'
@@ -85,6 +93,9 @@ SNT_GRAPH = 'snt_graph'
 DOC_GRAPH = 'doc_graph'
 AMR = 'amr'
 AMRS = 'amrs'
+UMR = 'umr'
+UMRS = 'umrs'
+SNT_UMR_GRAPH = 'snt_umr_graph'
 
 ################################## STRUCTURES ##################################
 # nodes
@@ -106,7 +117,7 @@ WIKI_EDGE = f':{WIKI}'
 # single node across entire doc
 ROOT = "root"
 AUTHOR = "author"
-DCT = 'dct'
+DCT = 'DCT'
 DCT_FULL = "document-creation-time"
 
 ### corefs
@@ -147,8 +158,8 @@ UNSP_EDGE = ':unspecified'  # part of UMR corpus but not predicted
 MODAL_EDGE_MAPPING = {
   'pos': FULL_AFF_EDGE,
   'neg': FULL_NEG_EDGE,
-  'pp': PART_AFF_EDGE,
-  'pn': NEUT_AFF_EDGE,
+  'pp': PART_AFF_EDGE, # pos_prt
+  'pn': NEUT_AFF_EDGE, # pos_neut
 }
 
 ### temporals
@@ -182,6 +193,7 @@ WORD_CLUSTERS = 'word_clusters'
 SPAN_CLUSTERS = 'span_clusters'
 
 ### entities
+PERSON = 'person'
 REF_PERSON = 'refer-person'
 REF_PERSON_EDGE = f':{REF_PERSON}'
 REF_NUMBER = "refer-number"

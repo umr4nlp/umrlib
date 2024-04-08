@@ -1,30 +1,25 @@
 #!/bin/bash
 
-# Modal Dependency Parsing
+# Modal Baseline
 
 set -o errexit
 set -o pipefail
 
 echo -e "\nInside \`$0\`"
-[ "$#" -lt 7 ] && echo "e.g. $0 input output modal_home max_seq_length venv cuda cvd" && exit 1
+[ "$#" -lt 5 ] && echo "e.g. $0 input stage1_output stage2_output modal_home max_seq_length venv" && exit 1
 
 input=$(readlink -m $1)
-output=$(readlink -m $2)
-modal_home=$(readlink -m $3)
-max_seq_length=$4
-venv=$5
-cuda=$6
-cvd=$7
+stage1_output=$(readlink -m $2)
+stage2_output=$(readlink -m $3)
+modal_home=$(readlink -m $4)
+max_seq_length=$5
+venv=$6
 
 # constant
 model=bert-base-cased
 best_on_dev_output_dir=output_modal/multi_task/dev_output
 
-echo -e "\n$cvd\n"
-export $cvd
-
-# set correct cuda version
-source $HOME/scripts/enable_$cuda
+echo -e "\nCUDA_VISIBLE_DEVICES: $CUDA_VISIBLE_DEVICES"
 nvcc --version
 
 # activate venv
@@ -34,13 +29,14 @@ python -V
 
 cd $modal_home
 
-echo -e "\Modal Multi-Task"
+echo -e "\Modal Baseline"
 echo -e " Input: $input"
-echo -e " Output: $output"
+echo -e " Stage 1 Output: $stage1_output"
+echo -e " Stage 2 Output: $stage2_output"
 echo -e " Model (fixed): $model"
 echo -e " Max Seq. Length: $max_seq_length\n"
 
-echo -e "\nModal Multi-Task Stage 1"
+echo -e "\nModal Baseline Stage 1"
 python parse.py \
   --model $model \
   --classifier multi_task \
@@ -52,7 +48,7 @@ python parse.py \
   --output_dir $best_on_dev_output_dir \
   --best_on_dev_output_dir $best_on_dev_output_dir
 
-echo -e "\nModal Multi-Task Stage 2"
+echo -e "\nModal Baseline Stage 2"
 python parse.py --evaluate_pred_edges \
   --model $model \
   --classifier multi_task \
@@ -64,10 +60,11 @@ python parse.py --evaluate_pred_edges \
   --output_dir $best_on_dev_output_dir \
   --best_on_dev_output_dir $best_on_dev_output_dir
 
-cp "${modal_home}/output_modal/multi_task/dev_output/bert-base-cased_multitask_test_stage1.txt" $output
-cp "${modal_home}/output_modal/multi_task/dev_output/bert-base-cased_multitask_test_stage2_auto_nodes.txt" $output
+cp "${modal_home}/output_modal/multi_task/dev_output/bert-base-cased_multitask_test_stage1.txt" $stage1_output
+cp "${modal_home}/output_modal/multi_task/dev_output/bert-base-cased_multitask_test_stage2_auto_nodes.txt" $stage2_output
 
-echo -e "Output: $output"
+echo -e "Stage 1 Output: $stage1_output"
+echo -e "Stage 2 Output: $stage2_output"
 
 # done
 cd -

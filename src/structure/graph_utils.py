@@ -11,24 +11,6 @@ from utils import consts as C
 logger = logging.getLogger(__name__)
 
 
-### misc. utils
-def maybe_decorate_edge(label):
-  if not label.startswith(':'):
-    label = f':{label}'
-  return label
-
-def maybe_strip_edge(label):
-  if label.startswith(':'):
-    label = label[1:]
-  return label
-
-def has_of_suffix(label):
-  return label.endswith(C.OF_SUFFIX)
-
-def invert_edge_label(label):
-  return label[:-3] if has_of_suffix(label) else f'{label}{C.OF_SUFFIX}'
-
-########################################################################################################################
 ### traversals
 def bfs(graph, root: int = -1, undirected_edges=False):
   # loop-impl.

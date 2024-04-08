@@ -26,11 +26,12 @@ class Example:
   """
 
   # unique snt-id in a document as int (`::snt1 ...`, `::snt34 ...`)
-  idx: int
+  snt_idx: int
+  doc_id: str = None
 
   # text
   snt: str = None # sentence
-  toks: List[str] = None # tokenized sentence; use `toks` for a list on white-space split
+  toks: List[str] = None # tokenized sentence
 
   # structures
   snt_graph: Union[str, SntGraph] = None
@@ -50,31 +51,45 @@ class Example:
   def has_doc_graph(self) -> bool:
     return self.doc_graph is not None
 
-  def update_idx(self, idx: int):
-    if isinstance(self.snt_graph, str):
-      logger.warning("Updating Example's `idx` has no effect since `snt_graph` is a string; this may have been the intention though")
-    else:
-      self.snt_graph.set_idx(idx, update_nodes=True)
-    if isinstance(self.doc_graph, str):
-      logger.warning("Updating Example's `idx` has no effect since `doc_graph` is a string; this may have been the intention though")
-    self.idx = idx
+  def init_doc_graph(self, snt_idx=None):
+    # initialize empty per-sentence document graph
+    snt_idx = snt_idx if snt_idx else self.snt_idx # not that important
+    self.doc_graph = DocGraph(snt_idx)
+    return self.doc_graph
 
-  # @property
-  # def toks(self) -> List[str]:
-  #   return  self.tok.split()
+  def update_snt_idx(self, snt_idx: int):
+    if isinstance(self.snt_graph, str):
+      logger.warning("Updating Example's `snt_idx` has no effect since `snt_graph` is a string; this is not an error")
+    else:
+      self.snt_graph.set_idx(snt_idx, update_nodes=True)
+    if isinstance(self.doc_graph, str):
+      logger.warning("Updating Example's `snt_idx` has no effect since `doc_graph` is a string; this is not an error")
+    self.snt_idx = snt_idx
+
+  def add_snt_prefix_to_vars(self, snt_idx=None):
+    snt_idx = snt_idx if snt_idx else self.snt_idx
+    for i, node in enumerate(self.snt_graph.node_list):
+      if not node.is_attribute:
+        node.set_var(f"s{snt_idx}x{i}")
+
+  @property
+  def doc_snt_id(self):
+    return  f"{self.doc_id}.{self.snt_idx}"
 
   @property
   def num_toks(self):
     return  len(self.toks)
 
   def encode(self, with_alignment=False):
-    out = [f'# :: snt{self.idx}\t{self.snt if self.snt is not None else self.tok}']
+    out = [f'# :: snt{self.snt_idx}\t{self.snt if self.snt is not None else " ".join(self.toks)}']
 
     snt_graph = self.snt_graph
+    assert snt_graph is not None
     if isinstance(snt_graph, SntGraph):
       snt_graph = str(snt_graph)
     elif isinstance(snt_graph, list):
       snt_graph = '\n'.join(snt_graph)
+    assert isinstance(snt_graph, str)
     out.append(f'# sentence level graph:\n{snt_graph}')
 
     alignment = self.alignment
@@ -83,7 +98,10 @@ class Example:
         alignment = "\n".join([f'{k}: {v[0]}-{v[1]}' for k,v in alignment.items()])
       elif isinstance(alignment, Alignment):
         breakpoint()
-      out.append(f'# alignment:\n{alignment}')
+      if len(alignment.strip()) > 0:
+          out.append(f'# alignment:\n{alignment}')
+      else:
+          out.append(f'# alignment:')
     else:
       out.append(f'# alignment:')
 

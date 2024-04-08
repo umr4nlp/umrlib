@@ -107,7 +107,8 @@ class SntGraph:
 
     for level, gorn_id in enumerate(gorn_ids[1:]):
       # should skip reentrancies
-      outgoing_edges = [edge for edge in self.edges if not edge.is_reentrancy and edge.src==node]
+      outgoing_edges = [
+        edge for edge in self.edges if not edge.is_reentrancy and edge.src==node]
       gorn_id = int(gorn_id)
 
       num_outgoing_edges = len(outgoing_edges)
@@ -119,8 +120,8 @@ class SntGraph:
 
   def set_root(self, node: Union[int, Node]):
     node = self.get_node_idx(node)
-    if self.root != -1:
-      logger.warning('Overwriting existing root %d with %d', self.root, node)
+    # if self.root != -1:
+    #   logger.debug('Overwriting existing root %d with %d', self.root, node)
     self.root = node
 
   def add_node(self, label=None, is_root=False, **kwargs) -> Node:
@@ -140,15 +141,18 @@ class SntGraph:
 
     return node
 
-  def remove_node(self, node: Union[int, Node]):
+  def remove_node(self, node: Union[int, Node], remove_all_edges=False, find_new_root=False):
     node = self.get_node_idx(node)
-
-    logger.debug("Removing node, original:\n%s", self)
+    if node not in self.nodes:
+      logger.debug("Attempted to remove node %d which doesn't exist; skipping..", node)
+      return
 
     node_is_root = node == self.root_node
 
     # remove from node register
     node = self.get_node(node)
+
+    logger.debug("Removing Node %s! Graph Before:\n%s", node, self)
     for k,v in self.nodes.copy().items():
       if node == v:
         self.nodes.pop(k)
@@ -157,7 +161,7 @@ class SntGraph:
     srcs, tgts, labels = [], [], []
 
     removed_edges = []
-    for edge in self.get_edges(node, undirected=True):
+    for edge in self.get_edges(node, undirected=remove_all_edges):
       removed_edges.append(edge)
       self.remove_edge(edge)
 
@@ -168,23 +172,29 @@ class SntGraph:
       if tgt != node.idx and edge.tgt not in tgts:
         tgts.append(edge.tgt)
 
-    if len(srcs) == 0:
-      self.set_root(tgts[0])
-    elif len(tgts) == 0:
-      self.set_root(srcs[0])
-    else:
-      src = srcs[0]
-      tgt = tgts[0]
-      label = labels[0] if len(labels) > 0 else ":ARG0"  # default fallback
+    if self.root_node == node:
+      if len(srcs) == 0:
+        if find_new_root:
+          self.set_root(tgts[0])
+      elif len(tgts) == 0:
+        if find_new_root:
+          self.set_root(srcs[0])
+      else:
+        src = srcs[0]
+        tgt = tgts[0]
+        label = labels[0] if len(labels) > 0 else ":ARG0"  # default fallback
 
-      self.add_edge(src, tgt, label=label)
-      if node_is_root:
-        self.root = src
+        self.add_edge(src, tgt, label=label)
+        if node_is_root and find_new_root:
+          # self.root = src
+          self.set_root(src)
 
     bfs_nodes, bfs_edges = graph_utils.bfs(self, undirected_edges=True)
     num_bfs_edges = len(bfs_edges)
     if num_bfs_edges != self.num_edges:
       raise Exception(f'Disconnected Graph: {num_bfs_edges} vs {self.num_edges}')
+
+    logger.debug("Removed Node %s! Graph After:\n%s", node, self)
 
     return node, removed_edges
 
@@ -281,13 +291,13 @@ class SntGraph:
     if has_label:
       check_labels = [label]
       if undirected:
-        check_labels.append(graph_utils.invert_edge_label(label))
+        check_labels.append(regex_utils.invert_edge_label(label))
       edges = [edge for edge in edges if edge.get_label() in check_labels]
 
     return edges
 
   def invert_edge(self, edge: Edge):
-    inverted_label = graph_utils.invert_edge_label(edge.get_label())
+    inverted_label = regex_utils.invert_edge_label(edge.get_label())
     self.reroute_edge(edge, new_src=edge.tgt, new_tgt=edge.src, new_label=inverted_label)
 
   def add_edge(
@@ -302,8 +312,8 @@ class SntGraph:
     # UPDATE (March 2024): allow duplicate (i.e., src and tgt the same), but raise warning
     has_edge_flag, ref = self.get_edge(src, tgt, undirected=kwargs.get('undirected', True))
     if has_edge_flag:
-      logger.info("Add an edge (%s %s %s) that already exists (%s) --- this is not an error",
-                  self.get_node(src), label, self.get_node(tgt), ref)
+      logger.debug("Add an edge (%s %s %s) that already exists (%s) --- this is not an error",
+                   self.get_node(src), label, self.get_node(tgt), ref)
 
     edge = Edge(src, tgt, label, **kwargs)
     # BUT cannot allow everything (src, label, and tgt) to be the same
@@ -364,7 +374,12 @@ class SntGraph:
         node_label = penman_const.evaluate(node.get_label())
         node_labels.append(penman_const.quote(node_label))
       else:
-        node_labels.append(f"{node.as_var()}\n{node.get_label()}")
+        node_label = node.get_label()
+        if node_label not in [C.ROOT, C.AUTHOR, 'DCT']:
+          # node_labels.append(f"{node.as_var()} /\n{node_label}")
+          node_labels.append(node_label)
+        else:
+          node_labels.append(node_label)
       if node_idx == self.root:
         root = i
 

@@ -60,10 +60,13 @@ def fix_umr_docs(input_dir, output_dir, aggression: int = 1):
       logger.info("=> Preprocessing `%s`", fname)
       input_fpath = os.path.join(input_dir, fname)
 
-      # assert 1 <= aggression <= 3
-      assert 1 <= aggression < 3
-
       raw_text = io_utils.load_txt(input_fpath)
+
+      if aggression == 0: # just copy
+        out_fpath = io_utils.save_txt(raw_text, output_dir, fname=fname)
+        out_fpaths.append(out_fpath)
+        continue
+
       raw_text_s = raw_text.split('\n')
 
       ### text level cleanup
@@ -221,25 +224,26 @@ def get_partition_offsets(data, max_per_doc: int = 0, strategy: str = "greedy") 
 def prepare_inputs(input_dir, output_dir, max_per_doc: List[int] = None,
                    partition_strategy: str = 'greedy', snt_to_tok: Optional[str] = None):
   ### FIST PASS: AMR + Coref
+  snts = [] # for post-processing
   toks = [] # ibm-transition-parser
   amrs = [] # leak distill + spring
   amr_sents = [] # AMRBART, list of dicts
   corefs = [] # caw-coref + wl-coref
   # `document-id` to `nth` entry, 0-based
   doc2snt_mapping = dict() # type: Dict[str, int] # IBM + udpipe
-  # # 0-bsed `nth` entry to `doc-id`
-  # snt2doc_mapping = dict() # type: Dict[int, str] # IBM + udpipe
 
   global_idx = 0
 
   # list of `Document`
-  umr_docs = umr_utils.load_umr_dir(input_dir, snt_to_tok=snt_to_tok, init_document=True) # type: List[Document]
+  umr_docs = umr_utils.load_umr_dir(
+    input_dir, snt_to_tok=snt_to_tok, init_document=True) # type: List[Document]
+  num_docs = len(umr_docs)
   num_data = sum(len(x) for x in umr_docs)
 
   # first pass: AMR + coref inputs
   for umr_doc in tqdm.tqdm(umr_docs, desc='[PREP. 1st-Pass]'):
     doc_id = umr_doc.doc_id
-    _, doc_idx = umr_utils.parse_umr_doc_id(doc_id, as_int=True)
+    _, doc_idx = umr_utils.parse_umr_id(doc_id, merge_doc_id=True, int_idx=True)
 
     snt_graph_inputs = []
 
@@ -251,11 +255,14 @@ def prepare_inputs(input_dir, output_dir, max_per_doc: List[int] = None,
     }
 
     for i, example in enumerate(umr_doc):  # type: int, Example
-      cur_doc_snt_id = umr_utils.build_umr_id(doc_id, snt_idx=example.idx)
+      cur_doc_snt_id = umr_utils.build_umr_id(doc_id, snt_idx=example.snt_idx)
 
       # snt graph for inputs to AMR Parsing
       snt, ex_toks = example.snt, example.toks
       tok = " ".join(ex_toks)
+
+      # snt
+      snts.append(snt)
 
       # tokens only
       toks.append(tok)
@@ -277,8 +284,6 @@ def prepare_inputs(input_dir, output_dir, max_per_doc: List[int] = None,
 
       # doc2snt mapping
       doc2snt_mapping[cur_doc_snt_id] = global_idx
-      # # snt2doc mapping
-      # snt2doc_mapping[global_idx] = cur_doc_snt_id
       global_idx += 1
 
     amrs.extend(snt_graph_inputs)
@@ -288,11 +293,13 @@ def prepare_inputs(input_dir, output_dir, max_per_doc: List[int] = None,
   assert num_data == len(toks) == len(amrs), f"{num_data} vs {len(toks)} vs {len(amrs)}"
 
   ### SECOND PASS: MDP + TDP (+CDLM)
-  if len(max_per_doc) == 0:
+  num_splits = len(max_per_doc)
+  if num_splits == 0:
+    num_splits = 1
     max_per_doc = [0]
 
   split_mappings = dict()
-  with tqdm.tqdm(total=len(umr_docs) * len(max_per_doc), desc='[PREP. 2nd-Pass]') as pbar:
+  with tqdm.tqdm(total=num_docs*num_splits, desc='[PREP. 2nd-Pass]') as pbar:
     for split_max_len in max_per_doc:
       docs = []
       docs_dct = []
@@ -301,7 +308,7 @@ def prepare_inputs(input_dir, output_dir, max_per_doc: List[int] = None,
       num_snts = 0
       for umr_doc in umr_docs:
         doc_id = umr_doc.doc_id
-        _, doc_idx = umr_utils.parse_umr_doc_id(doc_id, as_int=True)  # randomly chosen artificial DCT
+        _, doc_idx = umr_utils.parse_umr_id(doc_id, merge_doc_id=True, int_idx=True)
 
         cur_split_mappings[C.DOC][doc_id] = doc_id
 
@@ -309,12 +316,13 @@ def prepare_inputs(input_dir, output_dir, max_per_doc: List[int] = None,
         doc_inputs = [doc_input_header]
         doc_inputs_dct = [doc_input_header, "Januaray 01 , 2000"]
 
-        fname_index_offset = len(umr_docs) + 1
+        fname_index_offset = num_docs + 1
         local_snt_idx = 1
 
-        partition_offsets = get_partition_offsets(umr_doc, max_per_doc=split_max_len, strategy=partition_strategy)
+        partition_offsets = get_partition_offsets(
+          umr_doc, max_per_doc=split_max_len, strategy=partition_strategy)
         for j, example in enumerate(umr_doc): # type: int, Example
-          ref_umr_doc_snt_id = umr_utils.build_umr_id(doc_idx, example.idx)
+          ref_umr_id = example.doc_snt_id
 
           if j in partition_offsets:
             docs.append("\n".join(doc_inputs))
@@ -338,7 +346,7 @@ def prepare_inputs(input_dir, output_dir, max_per_doc: List[int] = None,
           doc_inputs_dct.append(tok)
 
           cur_umr_doc_snt_id = umr_utils.build_umr_id(doc_idx, local_snt_idx)
-          cur_split_mappings[C.SNT][cur_umr_doc_snt_id] = ref_umr_doc_snt_id
+          cur_split_mappings[C.SNT][cur_umr_doc_snt_id] = ref_umr_id
 
           local_snt_idx += 1
 
@@ -349,7 +357,7 @@ def prepare_inputs(input_dir, output_dir, max_per_doc: List[int] = None,
         num_snts += len(umr_doc)
         pbar.update(1)
 
-      # sanity check
+      # sanity check (-1 for header, -2 for header + artificial dct)
       assert num_snts == sum(len(x.split('\n'))-1 for x in docs) == sum(len(x.split('\n'))-2 for x in docs_dct)
 
       docs_inputs_fpath = os.path.join(output_dir, D.DOCS_TXT_TEMP % str(split_max_len))
@@ -361,8 +369,12 @@ def prepare_inputs(input_dir, output_dir, max_per_doc: List[int] = None,
       io_utils.save_txt(docs_dct, docs_dct_inputs_fpath, delimiter='\n\n')
 
   ### EXPORT
+  snts_fpath = os.path.join(output_dir, D.SNTS_TXT)
+  logger.info("Exporting Sentences at %s", snts_fpath)
+  io_utils.save_txt(snts, snts_fpath, delimiter='\n')
+
   toks_fpath = os.path.join(output_dir, D.TOKS_TXT)
-  logger.info("Exporting Sentence Tokens per line at %s", toks_fpath)
+  logger.info("Exporting Tokenized Sentences at %s", toks_fpath)
   io_utils.save_txt(toks, toks_fpath, delimiter='\n')
 
   doc2snt_mapping_fpath = os.path.join(output_dir, D.DOC2SNT_MAPPING_JSON)
@@ -430,9 +442,9 @@ def main(args):
 
 if __name__ == '__main__':
   def add_args(argparser):
-    argparser.add_argument('--aggression', type=int, default=1, choices=[1, 2],
+    argparser.add_argument('--aggression', type=int, default=1, choices=[0, 1, 2],
                            help='agressiveness when fixing annotation errors, from gentlest (1) to most aggressive (3)')
-    argparser.add_argument('--max-per-doc', type=int, nargs='*', default=[30, 80],
+    argparser.add_argument('--max-per-doc', type=int, nargs='*', default=[0, 30, 80],
                            help="max number(s) of sentences per doc (required)")
     argparser.add_argument('--partition-strategy', choices=['greedy', 'even'], type=str.lower, default='greedy',
                            help="partition strategy when splitting long UMR document")

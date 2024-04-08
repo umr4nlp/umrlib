@@ -93,7 +93,7 @@ def load_amr_file_ibm(fpath_or_dir, fname=None, clean=False, doc2snt_mapping=Non
   logger.info("Loaded %d AMR data from file at `%s`", len(metas), fpath)
   return metas, graphs
 
-def load_amr_file(fpath_or_dir, fname=None, clean=False, load_leamr=False, doc2snt_mapping=None):
+def load_amr_file(fpath_or_dir, fname=None, clean=False, load_leamr=False, node_as_alignment=False):
   """single file containing AMR annotations
 
   for IBM, use another function, i.e. `node_as_alignment` is FALSE
@@ -108,26 +108,15 @@ def load_amr_file(fpath_or_dir, fname=None, clean=False, load_leamr=False, doc2s
   if dataset[0].startswith('# AMR'):
     dataset.pop(0)
 
-  # the AMR may be from IBM or LeakDistill, and here we load them differently depending on how they have been aligned
-  # i.e., IBM natively produces alignment but provides no metadata except `::tok` so Doc2Snt mapping must be provied,
-  # whereas LeakDistill (and SPRING) relies on LEAMR which produces additional files
+  # AMRs are loaded differently based on how they have been aligned
+  # i.e., IBM natively produces alignment but provides no metadata except `::tok`
+  # so Doc2Snt mapping must be provied, whereas others (including MBSE) relies on
+  # a separate aligner (LEAMR in our case), which will produce additional files
   # BUT obviously they could both be False too, such as when reading AMR corpus
-  is_ibm_aligner = doc2snt_mapping is not None
 
-  metas, graphs = split_meta_from_graphs(dataset, node_as_alignment=is_ibm_aligner)
-  if is_ibm_aligner:
-    assert not load_leamr
-    if isinstance(doc2snt_mapping, str):
-      doc2snt_mapping = io_utils.load_json(doc2snt_mapping)
-    assert isinstance(doc2snt_mapping, dict)
-    # take inverse
-    snt2doc_mapping = {v: k for k, v in doc2snt_mapping.items()}
-
-    assert len(metas) == len(snt2doc_mapping)
-    for i, meta in enumerate(metas):
-      meta['id'] = snt2doc_mapping[i]
-
-  elif load_leamr:
+  # `node_as_alignment` is True for IBM-style
+  metas, graphs = split_meta_from_graphs(dataset, node_as_alignment=node_as_alignment)
+  if load_leamr:
     logger.info("Loading LEAMR alignments")
     alignments = io_utils.load_json(f'{fpath}.mrged.subgraph_alignments.json')
     for meta in metas:
@@ -154,6 +143,7 @@ def load_amr_dir(dirpath, clean=False, load_leamr=False):
 
 def save_amr_corpus(meta_list, graph_list, fpath_or_dir, fname=None, use_penman=False):
   fpath = io_utils.get_fpath(fpath_or_dir, fname)
+  logger.info("Exporting AMRs at `%s`", fpath)
 
   out = []
   for comment_dict, amr_str in zip(meta_list, graph_list):

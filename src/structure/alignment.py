@@ -6,7 +6,7 @@ import logging
 from collections import defaultdict
 from itertools import groupby
 from operator import itemgetter
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Union
 
 from penman import constant
 
@@ -104,6 +104,11 @@ class Alignment:
     self.tok2amr = tok2amr  # type: Dict[int, Node]
     tok = meta[C.TOK] if C.TOK in meta else meta[C.SNT]
     self.toks = tok.split()
+
+  def is_aligned_amr2tok(self, idx: Union[Node, int]):
+    if isinstance(idx, Node):
+      idx = idx.idx
+    return idx in self.amr2tok
 
   def from_span(self, start, end, sort_by_depth=False):
     aligneds = []

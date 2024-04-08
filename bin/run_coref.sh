@@ -6,7 +6,7 @@ set -o errexit
 set -o pipefail
 
 echo -e "\nInside \`$0\`"
-[ "$#" -lt 8 ] && echo -e "\n[!] e.g. \`$0\` input output coref_home model checkpoint venv cuda cvd" && exit 1
+[ "$#" -lt 6 ] && echo -e "\n[!] e.g. \`$0\` input output coref_home model checkpoint venv" && exit 1
 
 input=$(readlink -m $1)
 output=$(readlink -m $2)
@@ -14,14 +14,8 @@ coref_home=$(readlink -m $3)
 model=$4
 checkpoint=$5
 venv=$6
-cuda=$7
-cvd=$8
 
-echo -e "\n$cvd\n"
-export $cvd
-
-# set correct cuda version
-source $HOME/scripts/enable_$cuda
+echo -e "\nCUDA_VISIBLE_DEVICES: $CUDA_VISIBLE_DEVICES"
 nvcc --version
 
 # activate venv

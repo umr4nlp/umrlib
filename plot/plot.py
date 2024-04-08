@@ -18,16 +18,20 @@ logger = logging.getLogger(__name__)
 
 # FLAGS + CONST
 FIGURE_SUBDIR = 'figures'
-EXAMPLE_FPATH = 'example.txt'
+EXAMPLE_FPATH = 'example_abbr.txt'
 if os.path.basename(os.getcwd()) != 'plot':
-  FIGURE_SUBDIR = 'plot/figures'
-  EXAMPLE_FPATH = 'plot/example.txt'
+  FIGURE_SUBDIR = f'plot/{FIGURE_SUBDIR}'
+  EXAMPLE_FPATH = f'plot/{EXAMPLE_FPATH}'
 # TODO: may want to make this PDF ??>
-FIGURE_FPATH = f'{FIGURE_SUBDIR}/plot_v4.png'
-COORDS_PICKLE_FPATH = f'{FIGURE_SUBDIR}/coords_v4.pickle'
+FIGURE_FPATH = f'{FIGURE_SUBDIR}/doc_plot_v6_patch.png'
+COORDS_PICKLE_FPATH = f'{FIGURE_SUBDIR}/coords_v5.pickle'
 
 # when a good starting point fig coords have been found, set to True and apply manual changes
-LOAD_COORDS_FROM_PICKLE = False
+LOAD_COORDS_FROM_PICKLE = True
+
+# 1) LOAD_COORDS_FROM_PICKLE = False and in LINES 19,20 make whitespace between `: `and `AFF`, `:` and `NEG`
+# 2) save coords
+# 3) LOAD_COORDS_FROM_PICKLE = True and re-attach LINES 19,20
 
 # plotting
 MODAL_REL_COLOR = '#d23952'
@@ -37,7 +41,6 @@ ASPECT_EDGE_COLOR = 'purple'
 REF_EDGE_COLOR = 'blue'
 SUGIYAMA = False
 WITH_TITLE = False
-PLOT = True
 SAVE = True
 
 script_setup()
@@ -92,8 +95,8 @@ script_setup()
 #   fig.tight_layout()
 #   fig.savefig('./figures/snt_graphs.png')
 #   plt.show()
-doc = load_umr_file('./figures/example.txt', init_document=True, init_graphs=True, init_doc_var_nodes=True)
-examples = doc.examples
+doc = load_umr_file(EXAMPLE_FPATH, init_document=True, init_graphs=True, init_doc_var_nodes=True)
+examples = doc.examples_list
 print(doc)
 
 plt.figure()
@@ -114,7 +117,7 @@ edge_widths = [1] * 2
 
 # doc_graph is init as part of example; collect triples for later
 doc_triples = []
-for example in doc.examples:
+for example in examples:
   print(example)
   snt_graph = example.snt_graph
 
@@ -143,7 +146,7 @@ for example in doc.examples:
     edge_labels.append(edge_label)
     if edge_label == C.ASPECT:
       edge_colors.append(ASPECT_EDGE_COLOR)
-    elif edge_label.startswith('ref'):
+    elif edge_label.startswith('ref') or edge_label.startswith('REF'):
       edge_colors.append(REF_EDGE_COLOR)
     else:
       edge_colors.append("black") # default
@@ -190,7 +193,7 @@ if LOAD_COORDS_FROM_PICKLE:
 else:
   coords = layout.coords
   # manual fix
-  fix_snt_graph = examples[0].snt_graph
+  fix_snt_graph = doc.get_ith_example(0).snt_graph
   node = [x for x in fix_snt_graph.node_list if x.var == 's1p'][0]
   mapping_idx = mapping[f'1_{node.idx}']
   cur_coord = coords[mapping_idx]
@@ -201,7 +204,7 @@ else:
   cur_coord = coords[mapping_idx]
   coords[mapping_idx] = [cur_coord[0], cur_coord[1] + 0.4]
 
-  fix_snt_graph = examples[1].snt_graph
+  fix_snt_graph = doc.get_ith_example(1).snt_graph
   for node in fix_snt_graph.node_list:
     mapping_idx = mapping[f'2_{node.idx}']
     cur_coord = coords[mapping_idx]
@@ -239,6 +242,10 @@ else:
         else:
           coords[mapping_idx] = [cur_coord[0] - 2.1, cur_coord[1]]
 
+    elif node.is_attribute:
+      if node.get_label() == C.PERFORMANCE:
+        coords[mapping_idx] = [cur_coord[0] + 0.33, cur_coord[-1]]
+
   coords[1] = [coords[1][0] - 0.33, coords[1][1]]
   coords[2] = [coords[2][0] + 0.33, coords[2][1]]
   io_utils.save_pickle(coords, COORDS_PICKLE_FPATH)
@@ -254,14 +261,14 @@ ig.plot(
   edge_align_label=False,
   edge_color=edge_colors,
   edge_width=edge_widths,
-  edge_label_size=11,
-  edge_arrow_size=5,
+  edge_label_size=12,
+  edge_arrow_size=8,
   vertex_color=node_colors,
   vertex_frame_width=1.0,
   vertex_label=node_labels,
-  vertex_label_size=15.,
+  vertex_label_size=18.,
   vertex_order=node_orders,
-  vertex_size=80,
+  vertex_size=110,
   vertex_shape="circle",
   margin=0,
 )
@@ -271,6 +278,5 @@ ax.axis('off')
 fig.tight_layout()
 if SAVE:
   fig.savefig(FIGURE_FPATH)
-if PLOT:
-  plt.show()
+plt.show()
 

@@ -332,6 +332,7 @@ def collect_stats_umr(input_fpath_or_dir, output_fpath_or_dir=None):
     'num_nodes': 0,
     'num_concepts': 0,
     'num_attributes': 0,
+    'num_aspects': 0,
     'num_snt_edges': 0,
     'num_corefs': 0,
     'num_modals': 0,
@@ -377,6 +378,7 @@ def collect_stats_umr(input_fpath_or_dir, output_fpath_or_dir=None):
         if edge_label == C.ASPECT_EDGE:
           stats['aspect_types'][tgt_node_label] += 1
           stats['node2aspects'][src_node_label][tgt_node_label] += 1
+          stats['num_aspects'] += 1
 
         elif edge_label in [C.REF_PERSON_EDGE, C.REF_NUMBER_EDGE]:
           stats[f'{edge_label[1:].replace("-", "_")}_types'][tgt_node_label] += 1
@@ -559,6 +561,7 @@ def search_anno_mtdg(input_fpath, doc_id, var):
           out.append((before, None))
           out.append((found, 'found'))
           out.append((after, None))
+          num_found += 1
 
         else:
           out.append(("\n".join(snts) + "\n", None))
